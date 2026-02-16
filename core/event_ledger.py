@@ -6,7 +6,7 @@ This module is intentionally UI-agnostic and safe to call from hot signal paths.
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 import base64
 import json
@@ -68,6 +68,7 @@ class EventLedger:
         kind: str,
         name: str,
         payload: Any | None = None,
+        engine_key: str = "",
         severity: int = 1,
         correlation_id: str | None = None,
         parent_id: int | None = None,
@@ -87,8 +88,9 @@ class EventLedger:
             seq = self._seq
 
         event = {
-            "ts": (timestamp or datetime.utcnow()).isoformat(),
+            "ts": (timestamp or datetime.now(timezone.utc)).isoformat(),
             "event": name,
+            "engine_key": engine_key,
             "payload": json.dumps(serialized_payload, ensure_ascii=False),
             "session_id": self._session_id,
             "seq": seq,
@@ -111,6 +113,7 @@ class EventLedger:
         kind: str,
         name: str,
         payload: Any | None = None,
+        engine_key: str = "",
         severity: int = 1,
         correlation_id: str | None = None,
         parent_id: int | None = None,
@@ -121,6 +124,7 @@ class EventLedger:
             kind=kind,
             name=name,
             payload=payload,
+            engine_key=engine_key,
             severity=severity,
             correlation_id=correlation_id,
             parent_id=parent_id,
@@ -202,13 +206,14 @@ class EventLedger:
         cur.executemany(
             """
             INSERT INTO events(
-                ts, event, payload, session_id, seq, source, kind, severity, correlation_id, parent_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ts, event, engine_key, payload, session_id, seq, source, kind, severity, correlation_id, parent_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
                     item["ts"],
                     item["event"],
+                    item["engine_key"],
                     item["payload"],
                     item["session_id"],
                     item["seq"],
